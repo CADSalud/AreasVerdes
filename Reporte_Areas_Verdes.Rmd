@@ -157,23 +157,50 @@ selectInput("selector_entidad",
                             catalogo_entidades$NOM_ENT))
 
 selectInput("selector_municipio", 
-            "Municipio", 
-            choices = c(
-              "Todos",
-              paste(
-                catalogo_municipios$CVE_ENT, 
-                catalogo_municipios$CVE_MUN, 
-                catalogo_municipios$NOM_MUN)
-            )
+            "Municipio",
+            choices = ""
 )
 
-# reactive({
-#   updateSelectInput(session,
-#                     "selector_municipio",
-#                     )
-# })
+reactive({
+  filtro_entidad <- substr(input$selector_entidad, 1, 2)
+  
+  opciones <- catalogo_municipios %>% 
+    filter(CVE_ENT == filtro_entidad) %>% 
+    mutate(muns = paste(CVE_MUN, NOM_MUN)) %>% 
+    .$muns
+  
+  
+  updateSelectInput(session,
+                    "selector_municipio",
+                    choices = c("Todos", opciones)
+  )
+})
 
 #leafletOutput("map", width = "100%", height = "200%")
+
+  coordenadas_fit <- reactive({
+  filtro_entidad <- substr(input$selector_entidad, 1, 2)
+  filtro_municipio <- substr(input$selector_municipio, 1, 3)
+  
+  if(grepl("[0-9][0-9][0-9]", filtro_municipio)){
+    idx <- municipios$CVE_MUN == filtro_municipio & municipios$CVE_ENT == filtro_entidad
+  } else {
+    idx <- municipios$CVE_ENT == filtro_entidad
+  }
+  # 
+  #   a <- rgeos::gCentroid(municipios[idx,]) %>% as.data.frame() %>% as.numeric()
+  #   return(a)
+  poligono_df <- municipios[idx,] %>% broom::tidy()
+  
+  a <- data.frame(
+    lng1 = max(poligono_df$long), 
+    lat1 = max(poligono_df$lat),
+    lng2 = min(poligono_df$long),
+    lat2 = min(poligono_df$lat))
+  
+  return(a)
+})
+
 
 renderLeaflet({
   cve_entidad <- substr(input$selector_entidad, 1, 2)
@@ -188,6 +215,13 @@ renderLeaflet({
   poligonos_municipios <- municipios[municipios$CVE_ENT == cve_entidad,]
   
   map <- leaflet(mapa_av) %>% 
+    #setView(centro()[1], centro()[2], zoom = 5) %>% 
+    fitBounds(
+      lng1 = coordenadas_fit()[1,"lng1"],
+      lat1 = coordenadas_fit()[1,"lat1"],
+      lng2 = coordenadas_fit()[1,"lng2"],
+      lat2 = coordenadas_fit()[1,"lat2"]
+      ) %>% 
     addTiles() %>% 
     addPolygons(data = poligonos_municipios, 
                 color = "grey",
