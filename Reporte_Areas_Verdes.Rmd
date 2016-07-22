@@ -1,0 +1,258 @@
+---
+title: "Análisis de Áreas Verdes en México"
+author: "CAD Salud"
+date: "Julio de 2016"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE, echo=FALSE, results=F}
+knitr::opts_chunk$set(echo = FALSE, results = F, include = FALSE)
+```
+
+```{r packages, include = F}
+library(shiny)
+library(rgdal)
+library(maptools)
+library(dplyr)
+library(ggplot2)
+library(leaflet)
+library(geosphere)
+library(knitr)
+gpclibPermit()
+```
+
+# Introducción
+
+Las áreas verdes son importantes, bla bla bla...
+
+# Metodología
+
+Los datos utilizados en este trabajo provienen del [INEGI](http://www.inegi.org.mx/). Primero se descargaron los datos de la [cartografía geoestadística urbana y rural amanzanada (Cierre de la Encuesta Intercensal 2015)](http://buscador.inegi.org.mx/search?q=cartograf%C3%ADa+geoestad%C3%ADstica+urbana+2015&spell=1&client=ProductosR&proxystylesheet=ProductosR&num=10&getfields=*&sort=meta%3Aedicion%3AD%3AE%3A%3A%3AD&entsp=a__inegi_politica_p72&lr=lang_es%7Clang_en&oe=UTF-8&ie=UTF-8&ip=10.210.100.253&entqr=3&filter=0&site=ProductosBuscador&tlen=260) para cada entidad de la República. Después se descargaron los datos del [censo de población y vivienda 2010](http://www.inegi.org.mx/sistemas/consulta_resultados/iter2010.aspx) para obtener la población por municipio.
+
+Posteriormente, para cada municipio y cada entidad se filtaron las áreas verdes existentes, y se calculó el área de cada una, para después hacer un agregado por municipio y tener el total de metros cuadrados de área verde por municipio. Finalmente, para cada municipio, se hizo la división del total de personas en cada municipio entre el número de metros cuadrados de área verde.
+
+
+ÁREA VERDE
+Área pública con vegetación, dedicada al esparcimiento, decoración y conservación. 
+Urbana (1): Lugar cercado o abierto acondicionado con árboles, plantas y en ocasiones juegos. 
+
+http://www.inee.edu.mx/bie/mapa_indica/2005/PanoramaEducativoDeMexico/CS/CS05/2005_CS05__.pdf
+Urbana, una localidad es urbana si su población es de
+15,000 o más habitantes
+• Semiurbana, una localidad es semiurbana si su población
+es de 2,500 a 14,999 habitantes
+• Rural, una localidad es rural si su población es de 1 a
+2,499 habitantes
+
+```{r carga_datos}
+# municipios_map <- readOGR("data/Municipios_2013/", layer = "Municipios_2013") %>% 
+#   spTransform(., CRS("+init=epsg:26978 +proj=longlat +datum=WGS84"))
+# 
+# municipios_map@data <- municipios_map@data %>%
+#   mutate(CVE_MUN = paste0(CVE_ENT, CVE_MUN))
+# 
+# municipios_gg <- broom::tidy(municipios_map, region = "CVE_MUN")
+
+municipios_datos <- readRDS("output/municipios_info.rds") %>% 
+  mutate(m2porpers = Area_Verde_Total/(POB_Urbana + POB_Semiurbana)) %>% 
+  mutate(m2porpers = ifelse(m2porpers == Inf, NA, m2porpers))
+
+municipios_areas_verdes <- readRDS("output/municipios_areas_verdes.rds")
+
+municipios <- readRDS("output/municipios.rds")
+municipios@data <- municipios@data %>% 
+  left_join(municipios_datos)
+
+catalogo_entidades <- readr::read_csv("data/catalogo_entidades.csv")
+catalogo_municipios <- readr::read_csv("data/catalogo_municipios.csv") %>% 
+  left_join(catalogo_entidades)
+
+```
+
+
+```{r municipios, echo=FALSE}
+# municipios_datos %>%
+#   #filter(CVE_ENT == 9) %>% 
+#   select(CVE_MUN, m2porpers) %>% 
+#   full_join(municipios_gg, by = c("CVE_MUN" = "id")) %>% 
+#   mutate_each(funs(ifelse(is.na(.), 0, .))) %>% 
+#   ggplot() +
+#   geom_polygon(aes(long, lat, group = group, fill = m2porpers)) +
+#   theme_minimal() +
+#   coord_equal()
+```
+
+
+```{r}
+df_show <- municipios_datos %>% 
+  #filter(POB_Urbana/POBTOT > 0.5) %>% 
+  #filter(POBTOT/NUM_Loc > 2500) %>% 
+  filter(POBTOT/NUM_Loc > 2500 & POBTOT/AREA > 0.00039) %>% 
+  arrange(desc(m2porpers))
+```
+
+
+## Relación de áreas verdes con IDH
+
+```{r, include=T}
+idh <- readRDS("output/IDH_municipios.rds")
+
+df_show %>% 
+  left_join(idh) %>% 
+  ggplot(aes(IDH, m2porpers)) +
+  geom_point() +
+  geom_smooth()  
+```
+
+
+## Relación de áreas verdes con índice de marginación
+
+```{r, include=T}
+ind_marg <- readRDS("output/IM_municipios.rds")
+
+df_show %>% 
+  left_join(ind_marg) %>% 
+  ggplot(aes(IM, m2porpers)) +
+  geom_point() +
+  geom_smooth()  
+
+
+df_show %>% 
+  left_join(ind_marg) %>% 
+  ggplot(aes(GM, m2porpers)) +
+  geom_boxplot() 
+```
+
+
+## Resultados
+
+Los mejores municipios son:
+
+```{r, include=T}
+df_show %>% 
+  select(NOM_ENT, NOM_MUN, POB_Urbana, POB_Semiurbana, POBTOT, m2porpers) %>% 
+  head(15) %>% 
+  kable()
+```
+
+Los peores municipios son:
+
+```{r, include=T}
+df_show %>% 
+  arrange(m2porpers) %>% 
+  select(NOM_ENT, NOM_MUN, POB_Urbana, POB_Semiurbana, POBTOT, m2porpers) %>% 
+  head(15) %>% 
+  kable()
+```
+
+Como se puede ver, en la primera tabla, solo cuatro municipios sobrepasan el límite de 9 metros cuadrados de área verde por persona establecido por la OMS. Los peores municipios ni siquiera tienen registradas áreas verdes urbanas.
+
+## Mapa interactivo
+
+```{r leaflet, include = TRUE}
+selectInput("selector_entidad", 
+            "Entidad", 
+            choices = paste(catalogo_entidades$CVE_ENT, 
+                            catalogo_entidades$NOM_ENT))
+
+selectInput("selector_municipio", 
+            "Municipio", 
+            choices = c(
+              "Todos",
+              paste(
+                catalogo_municipios$CVE_ENT, 
+                catalogo_municipios$CVE_MUN, 
+                catalogo_municipios$NOM_MUN)
+            )
+)
+
+# reactive({
+#   updateSelectInput(session,
+#                     "selector_municipio",
+#                     )
+# })
+
+#leafletOutput("map", width = "100%", height = "200%")
+
+renderLeaflet({
+  cve_entidad <- substr(input$selector_entidad, 1, 2)
+  cve_mun <- substr(input$selector_municipio, 1, 6)
+  # if(cve_mun != "Todos"){
+  #   cve_entidad <- substr(cve_entidad, 1, 2)
+  #   
+  # }
+  idx <- seq_along(municipios_areas_verdes)[names(municipios_areas_verdes) == cve_entidad]
+  mapa_av <- municipios_areas_verdes[[idx]]
+  
+  poligonos_municipios <- municipios[municipios$CVE_ENT == cve_entidad,]
+  
+  map <- leaflet(mapa_av) %>% 
+    addTiles() %>% 
+    addPolygons(data = poligonos_municipios, 
+                color = "grey",
+                fillOpacity = 0.3,
+                stroke = T,
+                smoothFactor = 0.9,
+                popup = ~paste0(
+                  "Municipio: ",
+                  NOM_MUN,
+                  "<br>",
+                  "Área de municipio: ",
+                  round(AREA/10000, 2),
+                  " hectáreas",
+                  "<br>",
+                  "Población total: ",
+                  POBTOT,
+                  " habitantes",
+                  "<br>",
+                  "Población urbana: ",
+                  POB_Urbana,
+                  " habitantes",
+                  "<br>",
+                  "Porcentaje de población urbana: ",
+                  round(100*POB_Urbana/POBTOT, 1),
+                  "%",
+                  "<br>",
+                  "Área Verde Total: ",
+                  round(Area_Verde_Total/10000, 2),
+                  " hectáreas",
+                  "<br>",
+                  "Porcentaje de Área Verde: ",
+                  round(100*Area_Verde_Total/AREA, 1),
+                  "%",
+                  "<br>",
+                  "Metros cuadrados de área verde por persona (urbana): ",
+                  round(m2porpers, 2)
+                )) %>% 
+    addPolygons(color = "green", 
+                fillOpacity = 0.8, 
+                stroke = T, 
+                smoothFactor = 0.5,
+                popup = ~paste0(
+                  "Nombre de área verde: ",
+                  NOMBRE,
+                  "<br>",
+                  "Área: ",
+                  round(AREA/10000, 2),
+                  " hectáreas",
+                  "<br>")
+    )
+  return(map)
+})
+
+
+```
+
+## Fuentes
+
+* http://www.inegi.org.mx/geo/contenidos/urbana/doc/diccionario_datos_localidades_urbanas_ver_definitiva_septiembre07.pdf
+* http://www.arboricultura.org.mx/pdfs/Planeacion_espaciosverdes_sustentabilidad_DF.pdf
+* http://www.publimetro.com.mx/noticias/carece-cdmx-de-inventario-de-areas-verdes-actualizado/mpdt!K8n7QapPMjEE/
+* http://www.ub.edu/geocrit/sn/sn-331/sn-331-56.htm
+* http://smartcitiescouncil.com/article/dissecting-iso-37120-why-shady-planning-good-smart-cities
+* http://www.who.int/sustainable-development/cities/health-risks/urban-green-space/en/
+* http://imco.org.mx/calculadora-aire/
+* https://www.inspiraction.org/cambio-climatico/contaminacion/contaminacion-del-aire-en-mexico
+* http://www.hrsa.gov/healthit/toolbox/RuralHealthITtoolbox/Introduction/defined.html
+
