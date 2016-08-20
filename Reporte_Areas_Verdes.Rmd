@@ -428,7 +428,7 @@ shinyApp(
     })
   },
   
-  options = list(height = 700)
+  options = list(height = 900)
 )
 
 
@@ -583,7 +583,7 @@ shinyApp(
 
 ```
 
-### Infografía
+# Infografía
 
 Haz clic en la imagen para verla en grande.
 
