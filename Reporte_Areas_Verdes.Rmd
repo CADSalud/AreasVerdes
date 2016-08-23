@@ -75,167 +75,6 @@ df_filter <- municipios_datos %>%
 ```
 
 
-# Introducción
-
-Las ciudades son más que edificios y gente, son espacios para la cultura y la recreación. Una parte importante de esto son los espacios abiertos, los cuales proveen de muchos beneficios como lugares para hacer deporte, preservación de espacios naturales y reducción de la contaminación que viene con las grandes poblaciones.
-
-Los metros cuadrados de espacio verde urbano por persona son un indicador clave para medir la salud ambiental y el desarrollo de una ciudad sustentable. La Organización Mundial de la Salud establece que las ciudades deben de tener en promedio un mínimo de 9 metros cuadrados de área verde por habitante, mientras que lo óptimo sería un mínimo de 50. Algunas ciudades en el mundo han logrado este objetivo, como Viena en Austria, que cuenta con un promedio de 125 metros cuadrados de área verde por habitante, o Curitiba, Brasil que cuenta con 52. Otras grandes ciudades superan los 9 metros cuadrados, pero no llegan a los 50, como Nueva York, que cuenta con un promedio de 23 metros cuadrados de área verde por habitante y Tokio con 3 metros cuadrados.
-
-Esta pequeña investigación pretende analizar el número de áreas verdes en la República Mexicana a nivel municipio, utilizando datos abiertos del INEGI.
-
-Un área verde está definida como un área pública con vegetación, dedicada al esparcimiento, decoración y conservación. Y una localidad puede ser dividida en tres:
-
-- urbana si su población es de 15,000 o más habitantes
-- semiurbana, una localidad es semiurbana si su población es de 2,500 a 14,999 habitantes
-- Rural, una localidad es rural si su población es de 1 a 2,499 habitantes
-
-
-# Metodología
-
-Los datos utilizados en este trabajo provienen del 
-[INEGI](http://www.inegi.org.mx/). 
-Se descargaron los datos de la 
-[cartografía geoestadística urbana y rural amanzanada (Cierre de la Encuesta Intercensal 2015)](http://buscador.inegi.org.mx/search?q=cartograf%C3%ADa+geoestad%C3%ADstica+urbana+2015&spell=1&client=ProductosR&proxystylesheet=ProductosR&num=10&getfields=*&sort=meta%3Aedicion%3AD%3AE%3A%3A%3AD&entsp=a__inegi_politica_p72&lr=lang_es%7Clang_en&oe=UTF-8&ie=UTF-8&ip=10.210.100.253&entqr=3&filter=0&site=ProductosBuscador&tlen=260) 
-para cada entidad de la República. Los datos geográficos que integran a la Cartografía Geoestadística Urbana se actualizan en cada evento censal.
-
-Adicionalmente, se descargaron los datos del 
-[censo de población y vivienda 2010](http://www.inegi.org.mx/sistemas/consulta_resultados/iter2010.aspx) 
-para obtener la población por municipio. Se filtraron los municipios que tuvieran una densidad poblacional mínima de 
-[390 habitantes por kilómetro cuadrado](http://www.hrsa.gov/healthit/toolbox/RuralHealthITtoolbox/Introduction/defined.html)
-. Se hizo este filtrado para que los municipios que se analizaran fueran lo más urbanos posible. Con esto, el análisis final se hace con `r nrow(df_filter)` municipios, esto es el 
-`r round(100*nrow(df_filter)/nrow(municipios_datos), 1)`\% 
-del total de municipios y 
-`r formatC(sum(df_filter$POBTOT), format="d", big.mark=',')`
-habitantes, lo cual es el 
-`r round(100*sum(df_filter$POBTOT)/sum(municipios$POBTOT, na.rm = TRUE), 1)`\% 
-de la población del país.
-
-Posteriormente, para cada municipio y cada entidad se filtraron las áreas verdes existentes, y se calculó el área de cada una, para después hacer un agregado por municipio y tener el total de metros cuadrados de área verde por municipio. 
-
-Finalmente, para cada municipio, se hizo la división del número de metros cuadrados de área verde entre la población total para así obtener el número de metros cuadrados por habitante.
-
-# Resultados
-
-### Relación de áreas verdes con Índice de Desarrollo Humano (IDH)
-
-El [índice de desarrollo humano (IDH)](http://www.conapo.gob.mx/es/CONAPO/Desarrollo_Humano) es una medida de potenciación que indica que los individuos, cuando disponen de una serie de capacidades y oportunidades básicas como de gozar de una vida larga y saludable; adquirir conocimientos, comunicarse y participar en la vida de la comunidad, están en condiciones de aprovechar otras muchas opciones. En esencia, se trata de un indicador compuesto que combina la longevidad, el logro educacional y el nivel de vida.
-
-En la siguiente gráfica se puede ver que existe una relación creciente entre el índice de desarrollo humano y el número de metros cuadrados por persona, esto es, los municipios con mayor índice de desarrollo humano tienden a tener más metros cuadrados de área verde por persona. 
-
-```{r, include=T}
-gg <- df_filter %>% 
-  left_join(readRDS("output/IDH_municipios.rds")) %>% 
-  mutate(label = paste0(NOM_MUN, ", ", NOM_ENT)) %>% 
-  ggplot(aes(IDH, m2porpers, label = label)) +
-  geom_smooth() +
-  geom_point() +
-  theme_minimal() +
-  xlab("Índice de Desarrollo Humano (IDH)") +
-  ylab("Metros cuadrados por persona")
-ggplotly(gg)
-```
-
-
-### Relación de áreas verdes con índice de marginación
-
-El [índice de marginación](http://www.conapo.gob.mx/en/CONAPO/Indices_de_Marginacion) permite diferenciar a los municipios del país según el impacto global de las carencias que padece la población en sus lugares de residencia, tomando en cuenta la condición de alfabetismo, nivel educativo, vivienda, drenaje, disponibilidad de energía eléctrica y agua entubada. Un mayor valor del índice significa que en el municipio hay mayor marginación.
-
-En la gráfica mostrada a continuación se ve la relación del índice de marginación y el número de metros cuadrados persona. Se puede apreciar una relación decreciente, o sea que los municipios con menor índice de marginación tienden a tener más metros cuadrados de área verde por persona.
-
-```{r, include=T}
-#ind_marg <- readRDS("output/IM_municipios.rds")
-
-gg <- df_filter %>% 
-  left_join(readRDS("output/IM_municipios.rds")) %>% 
-  mutate(label = paste0(NOM_MUN, ", ", NOM_ENT)) %>% 
-  ggplot(aes(IM, m2porpers, label = label)) +
-  geom_smooth() +
-  geom_point() +
-  theme_minimal() +
-  xlab("Índice de Marginación") +
-  ylab("Metros cuadrados por persona")
-ggplotly(gg)
-
-# gg <- df_filter %>% 
-#   left_join(ind_marg) %>% 
-#   mutate(label = paste0(NOM_MUN, ", ", NOM_ENT)) %>% 
-#   ggplot(aes(GM, m2porpers, label = label)) +
-#   geom_boxplot() +
-#   theme_minimal() +
-#   xlab("Grado de Marginación") +
-#   ylab("Metros cuadrados por persona")
-# ggplotly(gg)
-```
-
-### Top de municipios
-
-Los municipios que tienen mayor número de metros cuadrados por persona son:
-
-```{r, include=T}
-df_filter %>% 
-  mutate(m2porpers = round(m2porpers, 2)) %>% 
-  select(Entidad = NOM_ENT, 
-         Municipio = NOM_MUN, 
-         `Población Urbana` = POB_Urbana, 
-         `Población semiurbana` = POB_Semiurbana, 
-         `Población Total` = POBTOT,
-         `Metros cuadrados por persona` = m2porpers) %>% 
-  head(15) %>% 
-  mutate_each(funs(formatC(., format="d", big.mark=',')), -c(`Metros cuadrados por persona`)) %>% 
-  kable()
-```
-
-
-
-```{r, include=T, eval=FALSE}
-df_filter %>% 
-  filter(m2porpers == 0) %>% 
-  select(Entidad = NOM_ENT, 
-         Municipio = NOM_MUN, 
-         `Población Urbana` = POB_Urbana, 
-         `Población semiurbana` = POB_Semiurbana, 
-         `Población Total` = POBTOT, 
-         `Metros cuadrados por persona` = m2porpers) %>% 
-  mutate_each(funs(formatC(., format="d", big.mark=','))) %>% 
-  kable()
-```
-```{r}
-num_mun_mayor_a_9 <- df_filter %>% filter(m2porpers >= 9) %>% nrow()
-plural_o_singular <- ifelse(num_mun_mayor_a_9 == 1, "municipio sobrepasa", "municipios sobrepasan")
-num_mun_mayor_a_9_show <- paste(num_mun_mayor_a_9, plural_o_singular)
-```
-
-Como se puede ver, en la primera tabla, solo `r num_mun_mayor_a_9_show` el límite de 9 metros cuadrados de área verde por persona establecido por la OMS. Los peores municipios ni siquiera tienen registradas áreas verdes urbanas.
-
-En la siguiente gráfica se pueden apreciar los 25 mejores municipios.
-
-```{r, include=T}
-gg <- df_filter %>% 
-  arrange(m2porpers) %>% 
-  tail(25) %>% 
-  mutate(Entidad_Mun = paste(NOM_MUN, NOM_ENT, sep = ", ")) %>% 
-  mutate(Entidad_Mun = factor(Entidad_Mun, levels = Entidad_Mun)) %>% 
-  ggplot() + 
-  geom_bar(aes(x = Entidad_Mun, y = m2porpers), stat = 'identity') + 
-  coord_flip() +
-  xlab("Metros cuadrados por persona") +
-  ylab("Municipio") +
-  theme_minimal()
-ggplotly(gg)
-
-```
-
-
-```{r, include=T, eval=F}
-df_filter %>% 
-  ggplot() + 
-  geom_histogram(aes(m2porpers), bins = 40) +
-  xlab("Metros cuadrados por persona") +
-  ylab("Número de municipios") +
-  theme_minimal()
-```
-
-
 ### Mapa interactivo
 
 ```{r leaflet, include = TRUE}
@@ -432,28 +271,170 @@ shinyApp(
 )
 
 
+```
+
+# Introducción
+
+Las ciudades son más que edificios y gente, son espacios para la cultura y la recreación. Una parte importante de esto son los espacios abiertos, los cuales proveen de muchos beneficios como lugares para hacer deporte, preservación de espacios naturales y reducción de la contaminación que viene con las grandes poblaciones.
+
+Los metros cuadrados de espacio verde urbano por persona son un indicador clave para medir la salud ambiental y el desarrollo de una ciudad sustentable. La Organización Mundial de la Salud establece que las ciudades deben de tener en promedio un mínimo de 9 metros cuadrados de área verde por habitante, mientras que lo óptimo sería un mínimo de 50. Algunas ciudades en el mundo han logrado este objetivo, como Viena en Austria, que cuenta con un promedio de 125 metros cuadrados de área verde por habitante, o Curitiba, Brasil que cuenta con 52. Otras grandes ciudades superan los 9 metros cuadrados, pero no llegan a los 50, como Nueva York, que cuenta con un promedio de 23 metros cuadrados de área verde por habitante y Tokio con 3 metros cuadrados.
+
+Esta pequeña investigación pretende analizar el número de áreas verdes en la República Mexicana a nivel municipio, utilizando datos abiertos del INEGI.
+
+Un área verde está definida como un área pública con vegetación, dedicada al esparcimiento, decoración y conservación. Y una localidad puede ser dividida en tres:
+
+- urbana si su población es de 15,000 o más habitantes
+- semiurbana, una localidad es semiurbana si su población es de 2,500 a 14,999 habitantes
+- Rural, una localidad es rural si su población es de 1 a 2,499 habitantes
+
+
+# Metodología
+
+Los datos utilizados en este trabajo provienen del 
+[INEGI](http://www.inegi.org.mx/). 
+Se descargaron los datos de la 
+[cartografía geoestadística urbana y rural amanzanada (Cierre de la Encuesta Intercensal 2015)](http://buscador.inegi.org.mx/search?q=cartograf%C3%ADa+geoestad%C3%ADstica+urbana+2015&spell=1&client=ProductosR&proxystylesheet=ProductosR&num=10&getfields=*&sort=meta%3Aedicion%3AD%3AE%3A%3A%3AD&entsp=a__inegi_politica_p72&lr=lang_es%7Clang_en&oe=UTF-8&ie=UTF-8&ip=10.210.100.253&entqr=3&filter=0&site=ProductosBuscador&tlen=260) 
+para cada entidad de la República. Los datos geográficos que integran a la Cartografía Geoestadística Urbana se actualizan en cada evento censal.
+
+Adicionalmente, se descargaron los datos del 
+[censo de población y vivienda 2010](http://www.inegi.org.mx/sistemas/consulta_resultados/iter2010.aspx) 
+para obtener la población por municipio. Se filtraron los municipios que tuvieran una densidad poblacional mínima de 
+[390 habitantes por kilómetro cuadrado](http://www.hrsa.gov/healthit/toolbox/RuralHealthITtoolbox/Introduction/defined.html)
+. Se hizo este filtrado para que los municipios que se analizaran fueran lo más urbanos posible. Con esto, el análisis final se hace con `r nrow(df_filter)` municipios, esto es el 
+`r round(100*nrow(df_filter)/nrow(municipios_datos), 1)`\% 
+del total de municipios y 
+`r formatC(sum(df_filter$POBTOT), format="d", big.mark=',')`
+habitantes, lo cual es el 
+`r round(100*sum(df_filter$POBTOT)/sum(municipios$POBTOT, na.rm = TRUE), 1)`\% 
+de la población del país.
+
+Posteriormente, para cada municipio y cada entidad se filtraron las áreas verdes existentes, y se calculó el área de cada una, para después hacer un agregado por municipio y tener el total de metros cuadrados de área verde por municipio. 
+
+Finalmente, para cada municipio, se hizo la división del número de metros cuadrados de área verde entre la población total para así obtener el número de metros cuadrados por habitante.
+
+# Resultados
+
+### Relación de áreas verdes con Índice de Desarrollo Humano (IDH)
+
+El [índice de desarrollo humano (IDH)](http://www.conapo.gob.mx/es/CONAPO/Desarrollo_Humano) es una medida de potenciación que indica que los individuos, cuando disponen de una serie de capacidades y oportunidades básicas como de gozar de una vida larga y saludable; adquirir conocimientos, comunicarse y participar en la vida de la comunidad, están en condiciones de aprovechar otras muchas opciones. En esencia, se trata de un indicador compuesto que combina la longevidad, el logro educacional y el nivel de vida.
+
+En la siguiente gráfica se puede ver que existe una relación creciente entre el índice de desarrollo humano y el número de metros cuadrados por persona, esto es, los municipios con mayor índice de desarrollo humano tienden a tener más metros cuadrados de área verde por persona. 
+
+```{r, include=T}
+gg <- df_filter %>% 
+  left_join(readRDS("output/IDH_municipios.rds")) %>% 
+  mutate(label = paste0(NOM_MUN, ", ", NOM_ENT)) %>% 
+  ggplot(aes(IDH, m2porpers, label = label)) +
+  geom_smooth() +
+  geom_point() +
+  theme_minimal() +
+  xlab("Índice de Desarrollo Humano (IDH)") +
+  ylab("Metros cuadrados por persona")
+ggplotly(gg)
+```
+
+
+### Relación de áreas verdes con índice de marginación
+
+El [índice de marginación](http://www.conapo.gob.mx/en/CONAPO/Indices_de_Marginacion) permite diferenciar a los municipios del país según el impacto global de las carencias que padece la población en sus lugares de residencia, tomando en cuenta la condición de alfabetismo, nivel educativo, vivienda, drenaje, disponibilidad de energía eléctrica y agua entubada. Un mayor valor del índice significa que en el municipio hay mayor marginación.
+
+En la gráfica mostrada a continuación se ve la relación del índice de marginación y el número de metros cuadrados persona. Se puede apreciar una relación decreciente, o sea que los municipios con menor índice de marginación tienden a tener más metros cuadrados de área verde por persona.
+
+```{r, include=T}
+#ind_marg <- readRDS("output/IM_municipios.rds")
+
+gg <- df_filter %>% 
+  left_join(readRDS("output/IM_municipios.rds")) %>% 
+  mutate(label = paste0(NOM_MUN, ", ", NOM_ENT)) %>% 
+  ggplot(aes(IM, m2porpers, label = label)) +
+  geom_smooth() +
+  geom_point() +
+  theme_minimal() +
+  xlab("Índice de Marginación") +
+  ylab("Metros cuadrados por persona")
+ggplotly(gg)
+
+# gg <- df_filter %>% 
+#   left_join(ind_marg) %>% 
+#   mutate(label = paste0(NOM_MUN, ", ", NOM_ENT)) %>% 
+#   ggplot(aes(GM, m2porpers, label = label)) +
+#   geom_boxplot() +
+#   theme_minimal() +
+#   xlab("Grado de Marginación") +
+#   ylab("Metros cuadrados por persona")
+# ggplotly(gg)
+```
+
+### Top de municipios
+
+Los municipios que tienen mayor número de metros cuadrados por persona son:
+
+```{r, include=T}
+df_filter %>% 
+  mutate(m2porpers = round(m2porpers, 2)) %>% 
+  select(Entidad = NOM_ENT, 
+         Municipio = NOM_MUN, 
+         `Población Urbana` = POB_Urbana, 
+         `Población semiurbana` = POB_Semiurbana, 
+         `Población Total` = POBTOT,
+         `Metros cuadrados por persona` = m2porpers) %>% 
+  head(15) %>% 
+  mutate_each(funs(formatC(., format="d", big.mark=',')), -c(`Metros cuadrados por persona`)) %>% 
+  kable()
+```
 
 
 
+```{r, include=T, eval=FALSE}
+df_filter %>% 
+  filter(m2porpers == 0) %>% 
+  select(Entidad = NOM_ENT, 
+         Municipio = NOM_MUN, 
+         `Población Urbana` = POB_Urbana, 
+         `Población semiurbana` = POB_Semiurbana, 
+         `Población Total` = POBTOT, 
+         `Metros cuadrados por persona` = m2porpers) %>% 
+  mutate_each(funs(formatC(., format="d", big.mark=','))) %>% 
+  kable()
+```
+```{r}
+num_mun_mayor_a_9 <- df_filter %>% filter(m2porpers >= 9) %>% nrow()
+plural_o_singular <- ifelse(num_mun_mayor_a_9 == 1, "municipio sobrepasa", "municipios sobrepasan")
+num_mun_mayor_a_9_show <- paste(num_mun_mayor_a_9, plural_o_singular)
+```
+
+Como se puede ver, en la primera tabla, solo `r num_mun_mayor_a_9_show` el límite de 9 metros cuadrados de área verde por persona establecido por la OMS. Los peores municipios ni siquiera tienen registradas áreas verdes urbanas.
+
+En la siguiente gráfica se pueden apreciar los 25 mejores municipios.
+
+```{r, include=T}
+gg <- df_filter %>% 
+  arrange(m2porpers) %>% 
+  tail(25) %>% 
+  mutate(Entidad_Mun = paste(NOM_MUN, NOM_ENT, sep = ", ")) %>% 
+  mutate(Entidad_Mun = factor(Entidad_Mun, levels = Entidad_Mun)) %>% 
+  ggplot() + 
+  geom_bar(aes(x = Entidad_Mun, y = m2porpers), stat = 'identity') + 
+  coord_flip() +
+  xlab("Metros cuadrados por persona") +
+  ylab("Municipio") +
+  theme_minimal()
+ggplotly(gg)
+
+```
 
 
+```{r, include=T, eval=F}
+df_filter %>% 
+  ggplot() + 
+  geom_histogram(aes(m2porpers), bins = 40) +
+  xlab("Metros cuadrados por persona") +
+  ylab("Número de municipios") +
+  theme_minimal()
+```
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+```{r, eval=FALSE}
 
 # selectInput("selector_entidad", 
 #             "Selecciona la entidad quieras ver", 
@@ -579,8 +560,6 @@ shinyApp(
 #     )
 #   return(map)
 # })
-
-
 ```
 
 # Infografía
